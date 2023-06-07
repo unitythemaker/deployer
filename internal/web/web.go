@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -42,7 +43,6 @@ func NewServer(config *ServerConfig, logger *logger.Logger) *Server {
 func (s *Server) ConfigureRoutes() {
 	s.logger.Info("Configuring routes...")
 
-	// Upload endpoint
 	s.POST("/upload", s.uploadHandler)
 
 }
@@ -59,10 +59,17 @@ func (s *Server) Start() {
 func generateTempFilename() string {
 	rand.Seed(time.Now().UnixNano())
 	randID := fmt.Sprintf("%016x", rand.Uint64())
-	return filepath.Join(os.TempDir(), "app-"+randID+".zip")
+	return filepath.Join(os.TempDir(), "app-"+randID)
 }
 
 func (s *Server) uploadHandler(c echo.Context) error {
+	wholeForm, err := c.MultipartForm()
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Failed to parse form-data",
+		})
+	}
+	s.logger.Info("Received form-data", "form", wholeForm)
 	file, err := c.FormFile("file")
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -77,6 +84,7 @@ func (s *Server) uploadHandler(c echo.Context) error {
 		})
 	}
 	defer src.Close()
+	// Print the size of the received file
 
 	tempFilename := generateTempFilename()
 	dst, err := os.Create(tempFilename)
@@ -86,6 +94,11 @@ func (s *Server) uploadHandler(c echo.Context) error {
 		})
 	}
 	defer dst.Close()
+	// Print the size of the received file
+	fileSize, err := dst.Stat()
+	if err == nil {
+		fmt.Printf("Size of the file received: %d\n", fileSize.Size())
+	}
 
 	if _, err = io.Copy(dst, src); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -106,9 +119,17 @@ func (s *Server) uploadHandler(c echo.Context) error {
 func (s *Server) buildAndDeploy(filePath string) {
 	s.logger.Info("Building and deploying app using", "file", filePath)
 
-	tempDir, err := s.extractZip(filePath)
+	containerName := "app-" + fmt.Sprintf("%016x", rand.Uint64())
+	tempDir := filepath.Join(os.TempDir(), containerName)
+	err := os.MkdirAll(tempDir, os.ModePerm)
 	if err != nil {
-		s.logger.Error(err, "Failed to extract zip")
+		s.logger.Error(err, "Failed to create temporary directory")
+		return
+	}
+
+	err = s.extractZip(filePath, tempDir)
+	if err != nil {
+		s.logger.Error(err, "Failed to extract archive")
 		return
 	}
 
@@ -123,24 +144,24 @@ func (s *Server) buildAndDeploy(filePath string) {
 		return
 	}
 
-	if err := s.deployDockerContainer(imageName); err != nil {
+	ip, err := s.deployDockerContainer(imageName, containerName)
+	if err != nil {
 		s.logger.Error(err, "Failed to deploy Docker container")
 		return
 	}
+	s.logger.Info("Successfully deployed app", "ip", ip, "port", DEFAULT_DEPLOY_PORT)
 
-	if err := s.cleanupResources(tempDir); err != nil {
+	if err := s.cleanupResources(tempDir, filePath); err != nil {
 		s.logger.Error(err, "Failed to clean up resources")
 	}
 }
 
-func (s *Server) extractZip(filePath string) (string, error) {
+func (s *Server) extractZip(filePath string, tempDir string) error {
 	reader, err := zip.OpenReader(filePath)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer reader.Close()
-
-	tempDir := os.TempDir()
 
 	for _, file := range reader.File {
 		destPath := filepath.Join(tempDir, file.Name)
@@ -150,24 +171,24 @@ func (s *Server) extractZip(filePath string) (string, error) {
 		} else {
 			srcFile, err := file.Open()
 			if err != nil {
-				return "", err
+				return err
 			}
 			defer srcFile.Close()
 
 			destFile, err := os.Create(destPath)
 			if err != nil {
-				return "", err
+				return err
 			}
 			defer destFile.Close()
 
 			_, err = io.Copy(destFile, srcFile)
 			if err != nil {
-				return "", err
+				return err
 			}
 		}
 	}
 
-	return tempDir, nil
+	return nil
 }
 
 func (s *Server) createDockerfileIfNotPresent(tempDir string) error {
@@ -175,7 +196,7 @@ func (s *Server) createDockerfileIfNotPresent(tempDir string) error {
 
 	// TODO: possible security issue here, if the user uploads a Dockerfile, it must be overwritten
 	//if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
-	dockerfileContent := []byte("FROM node:18\n" +
+	dockerfileContent := []byte("FROM node:18-alpine\n" +
 		"WORKDIR /app\n" +
 		"COPY .output/ ./\n" +
 		"EXPOSE 8080\n" +
@@ -211,12 +232,72 @@ func (s *Server) buildDockerImage(tempDir string) (string, error) {
 	return imageName, nil
 }
 
-func (s *Server) deployDockerContainer(imageName string) error {
-	// Implement the function to deploy the Docker container using the Kubernetes API or `kubectl`.
+func (s *Server) deployDockerContainer(imageName string, containerName string) (string, error) {
+	//manifest := []byte("YOUR_MANIFEST_CONTENT_HERE")
+	//manifestFilePath := filepath.Join("path/to/your/manifest/folder", "app-deployment.yml")
+	//
+	//err := os.WriteFile(manifestFilePath, manifest, 0644)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//cmd := exec.Command("kubectl", "apply", "-f", manifestFilePath)
+	//err = cmd.Run()
+	//if err != nil {
+	//	return err
+	//}
+	// instead of Kubernetes, we will use Docker
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return "", err
+	}
+
+	containerConfig := docker.Config{
+		Image: imageName,
+		ExposedPorts: map[docker.Port]struct{}{
+			"3000/tcp": {},
+		},
+	}
+
+	ip, err := findAvailableIP(DEFAULT_DEPLOY_PORT)
+	if err != nil {
+		return "", err
+	}
+
+	hostConfig := docker.HostConfig{
+		PortBindings: map[docker.Port][]docker.PortBinding{
+			"3000/tcp": {
+				{
+					HostIP:   ip,
+					HostPort: strconv.Itoa(DEFAULT_DEPLOY_PORT),
+				},
+			},
+		},
+	}
+
+	container, err := client.CreateContainer(docker.CreateContainerOptions{
+		Name:       containerName,
+		Config:     &containerConfig,
+		HostConfig: &hostConfig,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	err = client.StartContainer(container.ID, nil)
+	if err != nil {
+		return "", err
+	}
+
+	return ip, nil
 }
 
-func (s *Server) cleanupResources(tempDir string) error {
+func (s *Server) cleanupResources(tempDir string, filepath string) error {
 	err := os.RemoveAll(tempDir)
+	if err != nil {
+		return err
+	}
+	err = os.RemoveAll(filepath)
 	if err != nil {
 		return err
 	}
