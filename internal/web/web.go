@@ -213,5 +213,10 @@ func (s *Server) deployDockerContainer(imageName string) error {
 }
 
 func (s *Server) cleanupResources(tempDir string) error {
-	// Implement the function to clean up the temporary files and resources.
+	err := os.RemoveAll(tempDir)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
