@@ -9,11 +9,14 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 )
+
+const DEFAULT_DEPLOY_PORT = 1234
 
 type ServerConfig struct {
 	Host string
@@ -219,4 +222,20 @@ func (s *Server) cleanupResources(tempDir string) error {
 	}
 
 	return nil
+}
+
+func findAvailableIP(port int) (string, error) {
+	for i := 100; i <= 255; i++ {
+		ip := fmt.Sprintf("127.0.0.%d", i)
+		addr := fmt.Sprintf("%s:%d", ip, port)
+
+		listener, err := net.Listen("tcp", addr)
+
+		if err == nil {
+			_ = listener.Close()
+			return ip, nil
+		}
+	}
+
+	return "", fmt.Errorf("No available IP found")
 }
