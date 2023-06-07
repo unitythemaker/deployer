@@ -2,6 +2,7 @@ package web
 
 import (
 	"NitroDeployer/internal/utils/logger"
+	"archive/zip"
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"io"
@@ -129,8 +130,40 @@ func (s *Server) buildAndDeploy(filePath string) {
 }
 
 func (s *Server) extractZip(filePath string) (string, error) {
-	// Implement the function to extract the .zip file to a temporary folder.
-	// You can use the "archive/zip" package for this task.
+	reader, err := zip.OpenReader(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer reader.Close()
+
+	tempDir := os.TempDir()
+
+	for _, file := range reader.File {
+		destPath := filepath.Join(tempDir, file.Name)
+
+		if file.FileInfo().IsDir() {
+			os.MkdirAll(destPath, os.ModePerm)
+		} else {
+			srcFile, err := file.Open()
+			if err != nil {
+				return "", err
+			}
+			defer srcFile.Close()
+
+			destFile, err := os.Create(destPath)
+			if err != nil {
+				return "", err
+			}
+			defer destFile.Close()
+
+			_, err = io.Copy(destFile, srcFile)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+
+	return tempDir, nil
 }
 
 func (s *Server) createDockerfileIfNotPresent(tempDir string) error {
