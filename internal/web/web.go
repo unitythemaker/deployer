@@ -4,6 +4,7 @@ import (
 	"NitroDeployer/internal/utils/logger"
 	"archive/zip"
 	"fmt"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/labstack/echo/v4"
 	"io"
 	"log"
@@ -167,11 +168,44 @@ func (s *Server) extractZip(filePath string) (string, error) {
 }
 
 func (s *Server) createDockerfileIfNotPresent(tempDir string) error {
-	// Implement the function to create the Dockerfile if it doesn't exist in the extracted folder.
+	dockerfilePath := filepath.Join(tempDir, "Dockerfile")
+
+	// TODO: possible security issue here, if the user uploads a Dockerfile, it must be overwritten
+	//if _, err := os.Stat(dockerfilePath); os.IsNotExist(err) {
+	dockerfileContent := []byte("FROM node:18\n" +
+		"WORKDIR /app\n" +
+		"COPY .output/ ./\n" +
+		"EXPOSE 8080\n" +
+		"CMD [\"node\", \"./server/index.mjs\"]\n")
+	err := os.WriteFile(dockerfilePath, dockerfileContent, 0644)
+	if err != nil {
+		return err
+	}
+	//}
+
+	return nil
 }
 
 func (s *Server) buildDockerImage(tempDir string) (string, error) {
-	// Implement the function to build the Docker image using "go-dockerclient" library.
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return "", err
+	}
+
+	imageName := fmt.Sprintf("my-nitro-image:%s", time.Now().Format("20060102150405"))
+	buildOpts := docker.BuildImageOptions{
+		Name:         imageName,
+		ContextDir:   tempDir,
+		Dockerfile:   "Dockerfile",
+		OutputStream: os.Stdout,
+	}
+
+	err = client.BuildImage(buildOpts)
+	if err != nil {
+		return "", err
+	}
+
+	return imageName, nil
 }
 
 func (s *Server) deployDockerContainer(imageName string) error {
