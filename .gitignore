@@ -25,3 +25,5 @@
 
 !.gitattributes
 !config.example.yml
+
+!.github/**
