@@ -40,6 +40,12 @@ RELEASE_INFO=$(curl -s "${API_URL}")
 TAG_NAME=$(echo "${RELEASE_INFO}" | grep "tag_name" | cut -d "\"" -f 4)
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG_NAME}/deployer-${OS}-${ARCH_NAME}.zip"
 
+# if there is no download url for the current OS
+if [ "${DOWNLOAD_URL}" == "" ]; then
+    echo "No deployer binary available for ${OS}-${ARCH_NAME} version ${TAG_NAME}"
+    exit 1
+fi
+
 echo "Downloading the latest version of deployer (${TAG_NAME})..."
 curl -L -o "${DEPLOYER_ZIP}" "${DOWNLOAD_URL}"
 
