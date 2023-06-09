@@ -22,9 +22,20 @@ if [ ! -d "${LOCAL_BIN}" ]; then
 fi
 
 # If .local/bin is not in PATH, add it
-if [[ $SHELL == *"bash"* ]] && [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
+if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
+  if [[ $SHELL == *"bash"* ]]; then
     echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.bashrc
     source ~/.bashrc
+  elif [[ $SHELL == *"zsh"* ]]; then
+    echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.zshrc
+    source ~/.zshrc
+  elif [[ $SHELL == *"fish"* ]]; then
+    echo 'set PATH $PATH $HOME/.local/bin' > ~/.config/fish/conf.d/deployer.fish
+    source ~/.config/fish/conf.d/deployer.fish
+  else
+    echo "Unsupported shell: ${SHELL}"
+    echo "Please add ${LOCAL_BIN} to your PATH manually."
+  fi
 fi
 
 # Downloading the binary from the GitHub release page
