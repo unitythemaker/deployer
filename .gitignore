@@ -28,3 +28,4 @@
 
 !.github/**
 !cli/install-from-release.sh
+!packaging/**

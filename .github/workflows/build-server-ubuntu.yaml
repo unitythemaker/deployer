@@ -1,0 +1,60 @@
+name: Build and Package
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_package:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.20
+
+      - name: Build Server binary
+        run: |
+          cd server
+          env GOARCH="${{ matrix.goarch }}" go build -o "../deployer-server"
+
+      - name: Install Debian build dependencies
+        run: |
+          ls -lha "packaging/debian"
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y dh-make devscripts dh-make-golang dh-golang build-essential fakeroot
+
+      - name: Build Ubuntu package
+        run: |
+          mkdir -p packages
+          for component in server; do
+            componentName="deployer-$component"
+            mkdir -p "debian/$componentName"
+            cp -R "packaging/debian" "debian/$componentName/debian"
+            sed -i "s/COMPONENT_NAME_PLACEHOLDER/$componentName/g" "debian/$componentName/debian/control"
+            # Customize the version in the changelog and control files
+            sed -i "s/VERSION_PLACEHOLDER/$(git describe --tags | cut -d '-' -f 1 | cut -d 'v' -f 2)/g" "debian/$componentName/debian/changelog"
+            sed -i "s/VERSION_PLACEHOLDER/$(git describe --tags | cut -d '-' -f 1 | cut -d 'v' -f 2)/g" "debian/$componentName/debian/control"
+            sed -i "s/ARCH_PLACEHOLDER/${{ matrix.goarch }}/g" "debian/$componentName/debian/control"
+            mkdir -p "debian/$componentName/usr/local/bin"
+            cp "deployer-$component" "debian/$componentName/usr/local/bin/$componentName"
+            # Build the package for the specified architecture
+            cd "debian/$componentName"
+            sudo dpkg-buildpackage -a ${{ matrix.goarch }} -us -uc -b 
+            mv "../${componentName}_${{ matrix.goarch }}.deb" "packages/"
+          done
+
+      - name: Upload packages
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: deployer_ubuntu_packages_${{ matrix.goarch }}
+          path: packages/

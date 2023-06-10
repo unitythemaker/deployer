@@ -1,0 +1,9 @@
+Source: COMPONENT_NAME_PLACEHOLDER
+Section: main
+Priority: optional
+Maintainer: Halil Tezcan KARABULUT <unitythemaker@gmail.com>
+Standards-Version: VERSION_PLACEHOLDER
+
+Package: COMPONENT_NAME_PLACEHOLDER
+Architecture: ARCH_PLACEHOLDER
+Description: Deployer Server is a tool for deploying your project to your server.
