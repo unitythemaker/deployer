@@ -16,7 +16,7 @@ import (
 
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
-	Short: "Deploy the build output to the NitroDeployer server",
+	Short: "Deploy the build output to the Deployer server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return deploy(args)
 	},
@@ -29,7 +29,7 @@ func init() {
 func generateTempFilename() string {
 	rand.Seed(time.Now().UnixNano())
 	randID := fmt.Sprintf("%016x", rand.Uint64())
-	return filepath.Join(os.TempDir(), "nitro-deployment-"+randID)
+	return filepath.Join(os.TempDir(), "deployment-"+randID)
 }
 
 func uploadFile(filePath, url string) error {

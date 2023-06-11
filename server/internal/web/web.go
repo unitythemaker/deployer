@@ -1,7 +1,7 @@
 package web
 
 import (
-	"NitroDeployer/internal/utils/logger"
+	"Deployer/internal/utils/logger"
 	"archive/zip"
 	"fmt"
 	docker "github.com/fsouza/go-dockerclient"

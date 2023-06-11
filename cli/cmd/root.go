@@ -15,9 +15,9 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "nitro-deploy",
-	Short: "nitro-deploy is a cli tool for deploying nitro apps blazing fast!",
-	Long:  `Nitro Deployer is a cli tool that helps you to deploy your nitro apps to our cloud. Blah blah`,
+	Use:   "deployer",
+	Short: "deployer is a cli tool for deploying nitro apps blazing fast!",
+	Long:  `Deployer is a cli tool that helps you to deploy your nitro apps to our cloud. Blah blah`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -44,9 +44,9 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.nitro-deploy.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.deployer.yaml)")
 
-	rootCmd.PersistentFlags().StringVar(&serverURL, "server", "http://localhost:8080", "URL of the NitroDeployer server")
+	rootCmd.PersistentFlags().StringVar(&serverURL, "server", "http://localhost:8080", "URL of the Deployer server")
 	rootCmd.PersistentFlags().StringVar(&targetFileName, "filename", ".output", "Filename of the build output file")
 
 	if err := viper.BindPFlag("server", rootCmd.PersistentFlags().Lookup("server")); err != nil {
@@ -72,7 +72,7 @@ func initConfig() {
 		// Search config in home directory with name ".nitro-k8s-deployer-cli" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".nitro-deploy")
+		viper.SetConfigName(".deployer")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

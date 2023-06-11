@@ -1,4 +1,4 @@
-module nitro-k8s-deployer-cli
+module deployer-cli
 
 go 1.20
 

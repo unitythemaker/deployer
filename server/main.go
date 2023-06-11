@@ -1,9 +1,9 @@
 package main
 
 import (
-	"NitroDeployer/internal/utils/config"
-	"NitroDeployer/internal/utils/logger"
-	"NitroDeployer/internal/web"
+	"Deployer/internal/utils/config"
+	"Deployer/internal/utils/logger"
+	"Deployer/internal/web"
 )
 
 func main() {

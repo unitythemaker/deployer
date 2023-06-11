@@ -1,7 +1,7 @@
 package config
 
 import (
-	"NitroDeployer/internal/web"
+	"Deployer/internal/web"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 	"log"
