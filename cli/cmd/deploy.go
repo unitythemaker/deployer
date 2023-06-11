@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/spf13/cobra"
 	"io"
 	"math/rand"
@@ -16,7 +17,7 @@ import (
 
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
-	Short: "Deploy the build output to the NitroDeployer server",
+	Short: "Deploy the build output to the Deployer server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return deploy(args)
 	},
@@ -29,7 +30,7 @@ func init() {
 func generateTempFilename() string {
 	rand.Seed(time.Now().UnixNano())
 	randID := fmt.Sprintf("%016x", rand.Uint64())
-	return filepath.Join(os.TempDir(), "nitro-deployment-"+randID)
+	return filepath.Join(os.TempDir(), "deployment-"+randID)
 }
 
 func uploadFile(filePath, url string) error {
@@ -39,13 +40,22 @@ func uploadFile(filePath, url string) error {
 	}
 	defer file.Close()
 
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	bar := pb.Full.Start64(fileInfo.Size())
+	defer bar.Finish()
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
 	if err != nil {
 		return err
 	}
-	_, err = io.Copy(part, file)
+	barReader := bar.NewProxyReader(file)
+	_, err = io.Copy(part, barReader)
 
 	err = writer.Close()
 	if err != nil {
@@ -68,14 +78,11 @@ func uploadFile(filePath, url string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad status: %s", resp.Status)
 	}
+	fmt.Println("Upload successful. Deploy in progress!")
 	return nil
 }
 
 func zipDirectory(dirPath, zipFilePath string) error {
-	// To zip a directory, we need to:
-	// 1. Create a zip file
-	// 2. Walk the directory and add each file to the zip file
-	// 3. Close the zip file
 	zipFile, err := os.Create(zipFilePath)
 	if err != nil {
 		return err
@@ -91,7 +98,6 @@ func zipDirectory(dirPath, zipFilePath string) error {
 		}
 
 		if info.IsDir() {
-			// add a trailing slash for creating dir
 			path = fmt.Sprintf("%s%c", path, os.PathSeparator)
 			_, err = zipWriter.Create(path)
 			return err

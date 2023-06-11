@@ -1,7 +1,7 @@
 package web
 
 import (
-	"NitroDeployer/internal/utils/logger"
+	"Deployer/internal/utils/logger"
 	"archive/zip"
 	"fmt"
 	docker "github.com/fsouza/go-dockerclient"
@@ -25,16 +25,23 @@ type ServerConfig struct {
 }
 
 type Server struct {
-	config *ServerConfig
-	logger *logger.Logger
+	config       *ServerConfig
+	logger       *logger.Logger
+	dockerClient *docker.Client
 	*echo.Echo
 }
 
 func NewServer(config *ServerConfig, logger *logger.Logger) *Server {
+	dockerClient, err := docker.NewClientFromEnv()
+	if err != nil {
+		log.Fatalf("Failed to create docker client: %s", err)
+	}
+
 	s := &Server{
-		config: config,
-		logger: logger,
-		Echo:   echo.New(),
+		config:       config,
+		logger:       logger,
+		dockerClient: dockerClient,
+		Echo:         echo.New(),
 	}
 	s.ConfigureRoutes()
 	return s
@@ -48,9 +55,16 @@ func (s *Server) ConfigureRoutes() {
 }
 
 func (s *Server) Start() {
+	s.logger.Info("Connecting to Docker...")
+	dockerInfo, err := s.dockerClient.Info()
+	if err != nil {
+		log.Fatalf("Failed to get docker info: %s", err)
+	}
+	s.logger.Info("Connected to Docker", "version", dockerInfo.ServerVersion)
 	address := fmt.Sprintf("%s:%d", s.config.Host, s.config.Port)
+
 	s.logger.Info("Starting server on", "address", address)
-	err := s.Echo.Start(address)
+	err = s.Echo.Start(address)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -117,6 +131,7 @@ func (s *Server) uploadHandler(c echo.Context) error {
 }
 
 func (s *Server) buildAndDeploy(filePath string) {
+	startTime := time.Now().UnixMilli()
 	s.logger.Info("Building and deploying app using", "file", filePath)
 
 	containerName := "app-" + fmt.Sprintf("%016x", rand.Uint64())
@@ -149,7 +164,7 @@ func (s *Server) buildAndDeploy(filePath string) {
 		s.logger.Error(err, "Failed to deploy Docker container")
 		return
 	}
-	s.logger.Info("Successfully deployed app", "ip", ip, "port", DEFAULT_DEPLOY_PORT)
+	s.logger.Info("Successfully deployed app", "ip", ip, "port", DEFAULT_DEPLOY_PORT, "time_ms", time.Now().UnixMilli()-startTime)
 
 	if err := s.cleanupResources(tempDir, filePath); err != nil {
 		s.logger.Error(err, "Failed to clean up resources")
@@ -211,12 +226,7 @@ func (s *Server) createDockerfileIfNotPresent(tempDir string) error {
 }
 
 func (s *Server) buildDockerImage(tempDir string) (string, error) {
-	client, err := docker.NewClientFromEnv()
-	if err != nil {
-		return "", err
-	}
-
-	imageName := fmt.Sprintf("my-nitro-image:%s", time.Now().Format("20060102150405"))
+	imageName := fmt.Sprintf("a-deployer-image:%s", time.Now().Format("20060102150405"))
 	buildOpts := docker.BuildImageOptions{
 		Name:         imageName,
 		ContextDir:   tempDir,
@@ -224,7 +234,7 @@ func (s *Server) buildDockerImage(tempDir string) (string, error) {
 		OutputStream: os.Stdout,
 	}
 
-	err = client.BuildImage(buildOpts)
+	err := s.dockerClient.BuildImage(buildOpts)
 	if err != nil {
 		return "", err
 	}
@@ -318,5 +328,5 @@ func findAvailableIP(port int) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("No available IP found")
+	return "", fmt.Errorf("no available IP found")
 }

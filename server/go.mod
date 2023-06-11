@@ -1,4 +1,4 @@
-module NitroDeployer
+module Deployer
 
 go 1.20
 
