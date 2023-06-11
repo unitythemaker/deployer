@@ -117,6 +117,7 @@ func (s *Server) uploadHandler(c echo.Context) error {
 }
 
 func (s *Server) buildAndDeploy(filePath string) {
+	startTime := time.Now().UnixMilli()
 	s.logger.Info("Building and deploying app using", "file", filePath)
 
 	containerName := "app-" + fmt.Sprintf("%016x", rand.Uint64())
@@ -149,7 +150,7 @@ func (s *Server) buildAndDeploy(filePath string) {
 		s.logger.Error(err, "Failed to deploy Docker container")
 		return
 	}
-	s.logger.Info("Successfully deployed app", "ip", ip, "port", DEFAULT_DEPLOY_PORT)
+	s.logger.Info("Successfully deployed app", "ip", ip, "port", DEFAULT_DEPLOY_PORT, "time_ms", time.Now().UnixMilli()-startTime)
 
 	if err := s.cleanupResources(tempDir, filePath); err != nil {
 		s.logger.Error(err, "Failed to clean up resources")
@@ -216,7 +217,7 @@ func (s *Server) buildDockerImage(tempDir string) (string, error) {
 		return "", err
 	}
 
-	imageName := fmt.Sprintf("my-nitro-image:%s", time.Now().Format("20060102150405"))
+	imageName := fmt.Sprintf("a-deployer-image:%s", time.Now().Format("20060102150405"))
 	buildOpts := docker.BuildImageOptions{
 		Name:         imageName,
 		ContextDir:   tempDir,
