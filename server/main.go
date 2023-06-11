@@ -1,10 +1,11 @@
 package main
 
 import (
-	"Deployer/internal/utils/config"
-	"Deployer/internal/utils/logger"
 	"Deployer/internal/web"
+	"Deployer/pkg/config"
+	"Deployer/pkg/logger"
 	"github.com/labstack/echo/v4/middleware"
+	"strconv"
 )
 
 func main() {
@@ -22,5 +23,8 @@ func main() {
 	// Add middleware for gracefully handling panics
 	server.Use(middleware.Recover())
 
-	server.Start()
+	serverConfig := config.GetWebServerConfig()
+	portStr := strconv.Itoa(serverConfig.Port)
+	address := serverConfig.Host + ":" + portStr
+	server.Start(address)
 }

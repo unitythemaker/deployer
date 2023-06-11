@@ -1,7 +1,7 @@
 package deploy
 
 import (
-	"Deployer/internal/utils/logger"
+	"Deployer/pkg/logger"
 	"archive/zip"
 	"bytes"
 	"fmt"
