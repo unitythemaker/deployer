@@ -42,7 +42,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: 1.20.5
+          goversion: https://dl.google.com/go/go1.20.5.linux-amd64.tar.gz
           project_path: "./cli"
           binary_name: "deployer"
 #          extra_files: LICENSE README.md

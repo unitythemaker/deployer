@@ -14,6 +14,16 @@ case "${OS_NAME}" in
 esac
 
 ARCH_NAME="$(uname -m)"
+case "${ARCH_NAME}" in
+    x86_64*)    ARCH_NAME=amd64;;
+    arm64*)     ARCH_NAME=arm64;;
+    armv8*)     ARCH_NAME=arm64;;
+    armv7*)     ARCH_NAME=arm;;
+    *)
+        echo "Unsupported architecture: ${ARCH_NAME}"
+        exit 1
+        ;;
+esac
 
 # Creating .local/bin if it does not exist
 LOCAL_BIN="$HOME/.local/bin"
@@ -41,7 +51,7 @@ fi
 # Downloading the binary from the GitHub release page
 TEMP_DIR="/tmp/deployer"
 mkdir -p "${TEMP_DIR}"
-DEPLOYER_ZIP="${TEMP_DIR}/deployer.zip"
+DEPLOYER_ARCHIVE="${TEMP_DIR}/deployer.tar.gz"
 DEPLOYER_BIN="${TEMP_DIR}/deployer"
 REPO="unitythemaker/deployer"
 API_URL="https://api.github.com/repos/${REPO}/releases/latest"
@@ -49,7 +59,9 @@ API_URL="https://api.github.com/repos/${REPO}/releases/latest"
 RELEASE_INFO=$(curl -s "${API_URL}")
 # Get the tag name from the latest release
 TAG_NAME=$(echo "${RELEASE_INFO}" | grep "tag_name" | cut -d "\"" -f 4)
-DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG_NAME}/deployer-${OS}-${ARCH_NAME}.zip"
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG_NAME}/deployer-${TAG_NAME}-${OS}-${ARCH_NAME}.tar.gz"
+
+echo $DOWNLOAD_URL
 
 # if there is no download url for the current OS
 if [ "${DOWNLOAD_URL}" == "" ]; then
@@ -58,17 +70,17 @@ if [ "${DOWNLOAD_URL}" == "" ]; then
 fi
 
 echo "Downloading the latest version of deployer (${TAG_NAME})..."
-curl -L -o "${DEPLOYER_ZIP}" "${DOWNLOAD_URL}"
+curl -L -o "${DEPLOYER_ARCHIVE}" "${DOWNLOAD_URL}"
 
 # Extracting the binary
-unzip -q "${DEPLOYER_ZIP}" -d "${TEMP_DIR}"
+tar -xzf "${DEPLOYER_ARCHIVE}" -C "${TEMP_DIR}"
 
 # Moving binary to .local/bin
 chmod a+x "${DEPLOYER_BIN}"
 mv "${DEPLOYER_BIN}" "${LOCAL_BIN}/deployer"
 
 # Cleaning up
-rm "${DEPLOYER_ZIP}"
+rm "${DEPLOYER_ARCHIVE}"
 rm -rf "/tmp/deployer"
 
 echo "Deployer has been installed in ${LOCAL_BIN}"
