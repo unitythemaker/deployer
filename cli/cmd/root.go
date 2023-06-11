@@ -18,6 +18,9 @@ var rootCmd = &cobra.Command{
 	Use:   "deployer",
 	Short: "deployer is a cli tool for deploying nitro apps blazing fast!",
 	Long:  `Deployer is a cli tool that helps you to deploy your nitro apps to our cloud. Blah blah`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		cmd.SilenceUsage = true
+	},
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
