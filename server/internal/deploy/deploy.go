@@ -59,12 +59,17 @@ func ExtractZip(filePath string, tempDir string) error {
 	return nil
 }
 
-func CreateDockerfileIfNotPresent(tempDir string) error {
+func CreateDockerfileIfNotPresent(tempDir string, entrypoint string) error {
+	if entrypoint == "" {
+		entrypoint = "server/index.mjs" // default for nitro
+	}
+
 	dockerfilePath := filepath.Join(tempDir, "Dockerfile")
 
 	dockerfileTmpl := `FROM {{.BaseImage}}
 WORKDIR /app
 COPY {{.CopySource}} {{.CopyDestination}}
+ENV PORT={{.ExposePort}}
 EXPOSE {{.ExposePort}}
 CMD [{{.Cmd}}]`
 
@@ -75,11 +80,12 @@ CMD [{{.Cmd}}]`
 
 	var buf bytes.Buffer
 	err = dockerfileTemplate.Execute(&buf, map[string]string{
+		// TODO: Make node version configurable
 		"BaseImage":       "node:18-alpine",
-		"CopySource":      ".output/",
+		"CopySource":      ".",
 		"CopyDestination": "./",
 		"ExposePort":      "8080",
-		"Cmd":             `"node", "./server/index.mjs"`,
+		"Cmd":             `"node", "` + entrypoint + `"`,
 	})
 	if err != nil {
 		return err
@@ -124,7 +130,7 @@ func DeployDockerContainer(imageName string, containerName string) (string, erro
 	containerConfig := docker.Config{
 		Image: imageName,
 		ExposedPorts: map[docker.Port]struct{}{
-			"3000/tcp": {},
+			"8080/tcp": {},
 		},
 	}
 
@@ -135,7 +141,7 @@ func DeployDockerContainer(imageName string, containerName string) (string, erro
 
 	hostConfig := docker.HostConfig{
 		PortBindings: map[docker.Port][]docker.PortBinding{
-			"3000/tcp": {
+			"8080/tcp": {
 				{
 					HostIP:   ip,
 					HostPort: strconv.Itoa(DEFAULT_DEPLOY_PORT),
@@ -190,7 +196,7 @@ func findAvailableIP(port int) (string, error) {
 	return "", fmt.Errorf("no available IP found")
 }
 
-func BuildAndDeploy(filePath string, dockerClient *docker.Client, logger *logger.Logger) {
+func BuildAndDeploy(filePath string, entrypoint string, logger *logger.Logger) {
 	startTime := time.Now().UnixMilli()
 	logger.Info("Building and deploying app", "file", filePath)
 
@@ -208,7 +214,7 @@ func BuildAndDeploy(filePath string, dockerClient *docker.Client, logger *logger
 		return
 	}
 
-	if err := CreateDockerfileIfNotPresent(tempDir); err != nil {
+	if err := CreateDockerfileIfNotPresent(tempDir, entrypoint); err != nil {
 		logger.Error(err, "Failed to create Dockerfile")
 		return
 	}

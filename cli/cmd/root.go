@@ -27,8 +27,7 @@ var rootCmd = &cobra.Command{
 }
 
 var (
-	targetFileName string
-	serverURL      string
+	serverURL string
 )
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -50,13 +49,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.deployer.yaml)")
 
 	rootCmd.PersistentFlags().StringVar(&serverURL, "server", "http://localhost:8080", "URL of the Deployer server")
-	rootCmd.PersistentFlags().StringVar(&targetFileName, "filename", ".output", "Filename of the build output file")
 
 	if err := viper.BindPFlag("server", rootCmd.PersistentFlags().Lookup("server")); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	if err := viper.BindPFlag("filename", rootCmd.PersistentFlags().Lookup("filename")); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
