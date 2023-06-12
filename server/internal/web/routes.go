@@ -16,6 +16,14 @@ func (s *Server) ConfigureRoutes() {
 }
 
 func (s *Server) uploadHandler(c echo.Context) error {
+	entrypoint := c.QueryParam("entrypoint")
+	if entrypoint == "" {
+		s.logger.Warn("Missing entrypoint query parameter")
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Missing entrypoint query parameter",
+		})
+	}
+
 	wholeForm, err := c.MultipartForm()
 	if err != nil {
 		s.logger.Warn("Failed to parse form-data", "error", err)
@@ -23,7 +31,7 @@ func (s *Server) uploadHandler(c echo.Context) error {
 			"error": "Failed to parse form-data",
 		})
 	}
-	s.logger.Info("Received form-data", "form", wholeForm)
+	s.logger.Info("Received deployment request", "form", wholeForm, "entrypoint", entrypoint)
 	file, err := c.FormFile("file")
 	if err != nil {
 		s.logger.Warn("Failed to retrieve file from form-data", "error", err)
@@ -59,7 +67,7 @@ func (s *Server) uploadHandler(c echo.Context) error {
 	}
 
 	go func() {
-		deploy.BuildAndDeploy(tempFilename, s.dockerClient, s.logger)
+		deploy.BuildAndDeploy(tempFilename, entrypoint, s.logger)
 	}()
 
 	response := map[string]string{
