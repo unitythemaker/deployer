@@ -23,8 +23,13 @@ var deployCmd = &cobra.Command{
 	},
 }
 
+var buildPath string
+var entrypoint string
+
 func init() {
 	rootCmd.AddCommand(deployCmd)
+	deployCmd.PersistentFlags().StringVar(&buildPath, "build-path", ".output", "Filename of the build output file")
+	deployCmd.PersistentFlags().StringVar(&entrypoint, "entrypoint", "server/index.mjs", "Entrypoint of the build output file")
 }
 
 func generateTempFilename() string {
@@ -84,7 +89,13 @@ func uploadFile(request *http.Request) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
+		errResp := &bytes.Buffer{}
+		_, err := io.Copy(errResp, resp.Body)
+		if err != nil {
+			return err
+		}
+
+		return fmt.Errorf("bad status: %s, response: %s", resp.Status, errResp)
 	}
 	fmt.Println("Upload successful. Deploy in progress!")
 	return nil
@@ -105,9 +116,20 @@ func zipDirectory(dirPath, zipFilePath string) error {
 			return err
 		}
 
+		pathInZip, err := filepath.Rel(dirPath, path)
+		if err != nil {
+			return err
+		}
+		if len(pathInZip) < 1 {
+			return nil
+		}
+		if pathInZip[0] != '/' {
+			pathInZip = "/" + pathInZip
+		}
+
 		if info.IsDir() {
-			path = fmt.Sprintf("%s%c", path, os.PathSeparator)
-			_, err = zipWriter.Create(path)
+			pathInZip = fmt.Sprintf("%s%c", pathInZip, os.PathSeparator)
+			_, err = zipWriter.Create(pathInZip)
 			return err
 		}
 
@@ -117,7 +139,7 @@ func zipDirectory(dirPath, zipFilePath string) error {
 		}
 		defer file.Close()
 
-		zipFile, err := zipWriter.Create(path)
+		zipFile, err := zipWriter.Create(pathInZip)
 		if err != nil {
 			return err
 		}
@@ -141,12 +163,17 @@ func deploy(args []string) error {
 	// Create zip file from build output
 	zipFilename := generateTempFilename()
 
-	if err := zipDirectory(".output", zipFilename); err != nil {
+	if err := zipDirectory(buildPath, zipFilename); err != nil {
 		return err
 	}
 
 	// Prepare upload request
 	uploadRequest, err := createUploadRequest(zipFilename, serverURL+"/upload")
+
+	// Add additional info to request
+	query := uploadRequest.URL.Query()
+	query.Add("entrypoint", entrypoint)
+	uploadRequest.URL.RawQuery = query.Encode()
 
 	if err != nil {
 		return err
