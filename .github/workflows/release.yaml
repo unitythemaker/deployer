@@ -1,5 +1,3 @@
-# .github/workflows/release.yml
-
 name: Release
 
 permissions:
@@ -12,8 +10,8 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
     if: ${{ !github.event.act }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
@@ -37,12 +35,17 @@ jobs:
         goarch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v3
+
+      - name: Set Version
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
       - uses: wangyoucao577/go-release-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
+          ldflags: "-X deployer-cli/cmd.version=${{ env.RELEASE_VERSION }}"
           goversion: https://dl.google.com/go/go1.20.5.linux-amd64.tar.gz
           project_path: "./cli"
           binary_name: "deployer"
-#          extra_files: LICENSE README.md
+          extra_files: LICENSE README.md
