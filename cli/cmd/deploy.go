@@ -33,43 +33,51 @@ func generateTempFilename() string {
 	return filepath.Join(os.TempDir(), "deployment-"+randID)
 }
 
-func uploadFile(filePath, url string) error {
+func createUploadRequest(filePath, url string) (*http.Request, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
+
+	if err != nil {
+		return nil, err
 	}
 
 	bar := pb.Full.Start64(fileInfo.Size())
 	defer bar.Finish()
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
-	if err != nil {
-		return err
-	}
 	barReader := bar.NewProxyReader(file)
 	_, err = io.Copy(part, barReader)
 
-	err = writer.Close()
-	if err != nil {
-		return err
+	if err = writer.Close(); err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", url, body)
+
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
+	return req, nil
+}
+
+func uploadFile(request *http.Request) error {
 	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := client.Do(request)
+
 	if err != nil {
 		return err
 	}
@@ -132,19 +140,28 @@ func zipDirectory(dirPath, zipFilePath string) error {
 func deploy(args []string) error {
 	// Create zip file from build output
 	zipFilename := generateTempFilename()
-	err := zipDirectory(".output", zipFilename)
+
+	if err := zipDirectory(".output", zipFilename); err != nil {
+		return err
+	}
+
+	// Prepare upload request
+	uploadRequest, err := createUploadRequest(zipFilename, serverURL+"/upload")
+
 	if err != nil {
 		return err
 	}
 
 	// Upload zip file to server
-	err = uploadFile(zipFilename, serverURL+"/upload")
+	err = uploadFile(uploadRequest)
+
 	if err != nil {
 		return err
 	}
 
 	// Delete zip file
 	err = os.Remove(zipFilename)
+
 	if err != nil {
 		return err
 	}
