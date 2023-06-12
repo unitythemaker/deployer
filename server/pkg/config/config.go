@@ -10,11 +10,17 @@ import (
 )
 
 func Init() {
-	InitViper()
-	InitDotenv()
+	err := InitViper()
+	if err != nil {
+		log.Fatalf("Failed to initialize viper: %s", err)
+	}
+	err = InitDotenv()
+	if err != nil {
+		log.Printf("Failed to load .env file: %s", err)
+	}
 }
 
-func InitViper() {
+func InitViper() error {
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	// Set default values
@@ -22,19 +28,21 @@ func InitViper() {
 	if err := viper.ReadInConfig(); err != nil {
 		// If the config file is not found, do not return an error
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			log.Fatalf("Failed to read config file: %s", err)
+			return err
 		}
 	}
+	return nil
 }
 
-func InitDotenv() {
+func InitDotenv() error {
 	err := godotenv.Load()
 	if err != nil {
 		// if .env file is not found, ignore the error
 		if _, ok := err.(*os.PathError); !ok {
-			log.Fatalf("Failed to load .env file: %s", err)
+			return err
 		}
 	}
+	return nil
 }
 
 func GetWebServerConfig() *web.ServerConfig {
