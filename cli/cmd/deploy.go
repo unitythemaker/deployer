@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/cheggaaa/pb/v3"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"io"
 	"math/rand"
 	"mime/multipart"
@@ -23,21 +24,23 @@ var deployCmd = &cobra.Command{
 	},
 }
 
-var buildPath string
-var entrypoint string
-
 func init() {
 	rootCmd.AddCommand(deployCmd)
-	deployCmd.PersistentFlags().StringVar(&buildPath, "build-path", ".output", "Filename of the build output file")
-	deployCmd.PersistentFlags().StringVar(&entrypoint, "entrypoint", "server/index.mjs", "Entrypoint of the build output file")
+	deployCmd.PersistentFlags().String("build-path", ".output", "Filename of the build output file")
+	deployCmd.PersistentFlags().String("entrypoint", "server/index.mjs", "Entrypoint of the build output file")
+
+	viper.BindPFlag("build-path", deployCmd.Flags().Lookup("build-path"))
+	viper.BindPFlag("entrypoint", deployCmd.Flags().Lookup("entrypoint"))
 }
 
+// TODO: Move to a common place
 func generateTempFilename() string {
 	rand.Seed(time.Now().UnixNano())
 	randID := fmt.Sprintf("%016x", rand.Uint64())
 	return filepath.Join(os.TempDir(), "deployment-"+randID)
 }
 
+// TODO: Move to a common place
 func createUploadRequest(filePath, url string) (*http.Request, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -79,6 +82,7 @@ func createUploadRequest(filePath, url string) (*http.Request, error) {
 	return req, nil
 }
 
+// TODO: Move to a common place
 func uploadFile(request *http.Request) error {
 	client := &http.Client{}
 	resp, err := client.Do(request)
@@ -101,6 +105,7 @@ func uploadFile(request *http.Request) error {
 	return nil
 }
 
+// TODO: Move to a common place
 func zipDirectory(dirPath, zipFilePath string) error {
 	zipFile, err := os.Create(zipFilePath)
 	if err != nil {
@@ -159,7 +164,24 @@ func zipDirectory(dirPath, zipFilePath string) error {
 	return nil
 }
 
+// TODO: Move to a common place
+func getServerURL() string {
+	host := viper.GetString("server.host")
+	port := viper.GetUint("server.port")
+	ssl := viper.GetBool("server.ssl")
+
+	protocol := "http"
+	if ssl {
+		protocol = "https"
+	}
+
+	return fmt.Sprintf("%s://%s:%d", protocol, host, port)
+}
+
 func deploy(args []string) error {
+	serverURL := getServerURL()
+	buildPath := viper.GetString("config.build-path")
+	entrypoint := viper.GetString("config.entrypoint")
 	// Create zip file from build output
 	zipFilename := generateTempFilename()
 

@@ -6,6 +6,7 @@ import (
 )
 
 var (
+	// this will be set by the build script
 	version string = "?.?.?"
 )
 
