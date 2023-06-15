@@ -15,9 +15,9 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "deployer",
-	Short: "deployer is a cli tool for deploying nitro apps blazing fast!",
-	Long:  `Deployer is a cli tool that helps you to deploy your nitro apps to our cloud. Blah blah`,
+	Use:   "bulut",
+	Short: "bulut is a cli tool for deploying nitro apps blazing fast!",
+	Long:  `Bulut is a simple deployment tool for your projects. Lightning-fast deployment.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		cmd.SilenceUsage = true
 	},
@@ -43,7 +43,7 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.bulut.yaml)")
-	rootCmd.PersistentFlags().String("server", "http://localhost:8080", "URL of the Deployer server")
+	rootCmd.PersistentFlags().String("server", "http://localhost:8080", "URL of the Bulut Server")
 
 	viper.BindPFlag("server", rootCmd.Flags().Lookup("server"))
 }

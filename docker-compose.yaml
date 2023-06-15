@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  deployer-server:
+  bulut-server:
     build: server/
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

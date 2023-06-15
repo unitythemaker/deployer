@@ -1,4 +1,4 @@
-module Deployer
+module bulut-server
 
 go 1.20
 

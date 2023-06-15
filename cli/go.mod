@@ -1,4 +1,4 @@
-module deployer-cli
+module bulut-cli
 
 go 1.20
 

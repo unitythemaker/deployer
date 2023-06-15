@@ -15,7 +15,7 @@
 ### 🐧 Linux & 🍎 Mac
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/unitythemaker/deployer/main/cli/install-from-release.sh | bash
+curl -fsSL https://raw.githubusercontent.com/unitythemaker/bulut/main/cli/install-from-release.sh | bash
 ```
 
 ### 🧰 Build from source

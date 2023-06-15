@@ -44,9 +44,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          ldflags: "-X deployer-cli/cmd.version=${{ env.RELEASE_VERSION }}"
+          ldflags: "-X bulut-cli/cmd.version=${{ env.RELEASE_VERSION }}"
           pre_command: export CGO_ENABLED=0
           goversion: https://dl.google.com/go/go1.20.5.linux-amd64.tar.gz
           project_path: "./cli"
-          binary_name: "deployer"
+          binary_name: "bulut"
 #          extra_files: LICENSE README.md

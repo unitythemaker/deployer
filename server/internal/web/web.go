@@ -1,7 +1,7 @@
 package web
 
 import (
-	"Deployer/pkg/logger"
+	"bulut-server/pkg/logger"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/labstack/echo/v4"
 )

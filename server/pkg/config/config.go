@@ -1,7 +1,7 @@
 package config
 
 import (
-	"Deployer/internal/web"
+	"bulut-server/internal/web"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 	"log"
