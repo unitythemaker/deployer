@@ -25,13 +25,6 @@ curl -fsSL https://raw.githubusercontent.com/unitythemaker/deployer/main/cli/ins
 
 ## 🖥️ Installation of Server
 
-Currently, there are no prebuilt binaries for the server. You can build it yourself.
-
-1. Clone the repository
-2. Run `go build -o bulut-server ./server`
-3. Run `./bulut-server`
-4. You can optionally add it to your PATH
-
 ### :whale: Docker
 
 Currently, there is no Docker image for the server. You can build it yourself.
@@ -42,3 +35,12 @@ Currently, there is no Docker image for the server. You can build it yourself.
 4. It will be available at `http://localhost:8080`
 
 For debugging, you can run `docker logs -f bulut-server` to see the logs.
+
+### 🧰 Build from source
+
+Currently, there are no prebuilt binaries for the server. You can build it yourself.
+
+1. Clone the repository
+2. Run `go build -o bulut-server ./server`
+3. Run `./bulut-server`
+4. You can optionally add it to your PATH
