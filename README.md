@@ -1,25 +1,29 @@
 # ☁️ Bulut
 
-Bulut is a simple deployment tool for your projects.
-It is written in Go and uses Docker to deploy your projects.
-It is designed to be simple and easy to use. Deploys in ~200ms.
+🚀 Bulut is a simple deployment tool for your projects.
 
-## Installation of CLI
+🥇 It is written in 🐿️ Go and uses :whale: Docker to deploy your projects.
 
-### Linux & Mac
+⭐ It is designed to be simple and easy to use.
+
+⚡ Lightning-fast deployment.
+
+## ⬇️ Installation of CLI
+
+### 🐧 Linux & 🍎 Mac
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/unitythemaker/deployer/main/cli/install-from-release.sh | bash
 ```
 
-### Build from source
+### 🧰 Build from source
 
 1. Clone the repository
 2. Run `go build -o bulut ./cli`
 3. Run `./bulut`
 4. You can optionally add it to your PATH
 
-## Installation of Server
+## 🖥️ Installation of Server
 
 Currently, there are no prebuilt binaries for the server. You can build it yourself.
 
@@ -28,7 +32,7 @@ Currently, there are no prebuilt binaries for the server. You can build it yours
 3. Run `./bulut-server`
 4. You can optionally add it to your PATH
 
-### Docker
+### :whale: Docker
 
 Currently, there is no Docker image for the server. You can build it yourself.
 
