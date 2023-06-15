@@ -8,6 +8,8 @@
 
 ⚡ Lightning-fast deployment.
 
+![Bulut](./.github/assets/bulut.png)
+
 ## ⬇️ Installation of CLI
 
 ### 🐧 Linux & 🍎 Mac
