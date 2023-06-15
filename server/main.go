@@ -1,9 +1,9 @@
 package main
 
 import (
-	"Deployer/internal/web"
-	"Deployer/pkg/config"
-	"Deployer/pkg/logger"
+	"bulut-server/internal/web"
+	"bulut-server/pkg/config"
+	"bulut-server/pkg/logger"
 	"github.com/labstack/echo/v4/middleware"
 	"strconv"
 )

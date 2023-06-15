@@ -40,8 +40,8 @@ if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
     echo 'export PATH=$PATH:$HOME/.local/bin' >> ~/.zshrc
     source ~/.zshrc
   elif [[ $SHELL == *"fish"* ]]; then
-    echo 'set PATH $PATH $HOME/.local/bin' > ~/.config/fish/conf.d/deployer.fish
-    source ~/.config/fish/conf.d/deployer.fish
+    echo 'set PATH $PATH $HOME/.local/bin' > ~/.config/fish/conf.d/bulut.fish
+    source ~/.config/fish/conf.d/bulut.fish
   else
     echo "Unsupported shell: ${SHELL}"
     echo "Please add ${LOCAL_BIN} to your PATH manually."
@@ -49,40 +49,40 @@ if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]]; then
 fi
 
 # Downloading the binary from the GitHub release page
-TEMP_DIR="/tmp/deployer"
+TEMP_DIR="/tmp/bulut"
 mkdir -p "${TEMP_DIR}"
-DEPLOYER_ARCHIVE="${TEMP_DIR}/deployer.tar.gz"
-DEPLOYER_BIN="${TEMP_DIR}/deployer"
-REPO="unitythemaker/deployer"
+BULUT_ARCHIVE="${TEMP_DIR}/bulut.tar.gz"
+BULUT_BIN="${TEMP_DIR}/bulut"
+REPO="unitythemaker/bulut"
 API_URL="https://api.github.com/repos/${REPO}/releases/latest"
 # Fetch the release information from GitHub API
 RELEASE_INFO=$(curl -s "${API_URL}")
 # Get the tag name from the latest release
 TAG_NAME=$(echo "${RELEASE_INFO}" | grep "tag_name" | cut -d "\"" -f 4)
-DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG_NAME}/deployer-${TAG_NAME}-${OS}-${ARCH_NAME}.tar.gz"
+DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG_NAME}/bulut-${TAG_NAME}-${OS}-${ARCH_NAME}.tar.gz"
 
 echo $DOWNLOAD_URL
 
 # if there is no download url for the current OS
 if [ "${DOWNLOAD_URL}" == "" ]; then
-    echo "No deployer binary available for ${OS}-${ARCH_NAME} version ${TAG_NAME}"
+    echo "No bulut binary available for ${OS}-${ARCH_NAME} version ${TAG_NAME}"
     exit 1
 fi
 
-echo "Downloading the latest version of deployer (${TAG_NAME})..."
-curl -L -o "${DEPLOYER_ARCHIVE}" "${DOWNLOAD_URL}"
+echo "Downloading the latest version of bulut (${TAG_NAME})..."
+curl -L -o "${BULUT_ARCHIVE}" "${DOWNLOAD_URL}"
 
 # Extracting the binary
-tar -xzf "${DEPLOYER_ARCHIVE}" -C "${TEMP_DIR}"
+tar -xzf "${BULUT_ARCHIVE}" -C "${TEMP_DIR}"
 
 # Moving binary to .local/bin
-chmod a+x "${DEPLOYER_BIN}"
-mv "${DEPLOYER_BIN}" "${LOCAL_BIN}/deployer"
+chmod a+x "${BULUT_BIN}"
+mv "${BULUT_BIN}" "${LOCAL_BIN}/bulut"
 
 # Cleaning up
-rm "${DEPLOYER_ARCHIVE}"
-rm -rf "/tmp/deployer"
+rm "${BULUT_ARCHIVE}"
+rm -rf "/tmp/bulut"
 
-echo "Deployer has been installed in ${LOCAL_BIN}"
+echo "Bulut has been installed in ${LOCAL_BIN}"
 echo "If you have not added ${LOCAL_BIN} to your PATH, please do so."
 echo "We already added it to your .bashrc file."

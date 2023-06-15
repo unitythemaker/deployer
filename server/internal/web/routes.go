@@ -1,7 +1,7 @@
 package web
 
 import (
-	"Deployer/internal/deploy"
+	"bulut-server/internal/deploy"
 	"github.com/labstack/echo/v4"
 	"io"
 	"net/http"

@@ -1,8 +1,8 @@
 package deploy
 
 import (
-	"Deployer/pkg/logger"
 	"archive/zip"
+	"bulut-server/pkg/logger"
 	"bytes"
 	"fmt"
 	docker "github.com/fsouza/go-dockerclient"
@@ -100,7 +100,7 @@ CMD [{{.Cmd}}]`
 }
 
 func BuildDockerImage(tempDir string) (string, error) {
-	imageName := fmt.Sprintf("a-deployer-image:%s", time.Now().Format("20060102150405"))
+	imageName := fmt.Sprintf("a-bulut-image:%s", time.Now().Format("20060102150405"))
 	buildOpts := docker.BuildImageOptions{
 		Name:         imageName,
 		ContextDir:   tempDir,

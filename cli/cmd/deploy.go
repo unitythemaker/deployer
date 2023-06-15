@@ -4,9 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
-	"github.com/cheggaaa/pb/v3"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"io"
 	"math/rand"
 	"mime/multipart"
@@ -14,11 +11,15 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/cheggaaa/pb/v3"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
-	Short: "Deploy the build output to the Deployer server",
+	Short: "Deploy the build output to the Bulut server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return deploy(args)
 	},
