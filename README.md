@@ -1,8 +1,8 @@
-# Bulut
+# ☁️ Bulut
 
 Bulut is a simple deployment tool for your projects.
 It is written in Go and uses Docker to deploy your projects.
-It is designed to be simple and easy to use. Deploys in 300ms.
+It is designed to be simple and easy to use. Deploys in ~200ms.
 
 ## Installation of CLI
 
