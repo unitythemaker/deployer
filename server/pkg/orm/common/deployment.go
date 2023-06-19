@@ -2,7 +2,6 @@ package common
 
 import (
 	"bulut-server/pkg/orm/models"
-	"fmt"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -19,12 +18,11 @@ func NewDeploymentQuery(db *DatabaseController) *DeploymentQuery {
 	}
 }
 
-func (q *DeploymentQuery) GetDeploymentByContainerID(namespace uuid.UUID, id string) (*models.Deployment, error) {
+func (q *DeploymentQuery) GetDeployment(namespaceId uuid.UUID, containerId string) (*models.Deployment, error) {
 	var deployment models.Deployment
-	result := q.gdb.Where("namespace_id = ? AND container_id = ?", namespace, id).Limit(1).First(&deployment)
-	fmt.Println(3, result)
-	if result.Error != nil {
-		return nil, result.Error
+	err := q.gdb.Where("namespace_id = ? AND container_id = ?", namespaceId, containerId).Limit(1).First(&deployment).Error
+	if err != nil {
+		return nil, err
 	}
 	return &deployment, nil
 }

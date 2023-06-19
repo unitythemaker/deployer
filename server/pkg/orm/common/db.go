@@ -2,18 +2,12 @@ package common
 
 import (
 	"bulut-server/pkg/orm/models"
-	"fmt"
-	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"time"
 )
 
 type DatabaseConfig struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	Database string
+	DBPath string
 }
 
 type DatabaseController struct {
@@ -28,25 +22,10 @@ func NewDatabase(config *DatabaseConfig) *DatabaseController {
 }
 
 func (db *DatabaseController) Connect() error {
-	// TODO: Timezone
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Asia/Shanghai", db.Config.Host, db.Config.User, db.Config.Password, db.Config.Database, db.Config.Port)
-	gdb, err := gorm.Open(postgres.New(postgres.Config{
-		DSN: dsn,
-		// TODO: Change to false
-		PreferSimpleProtocol: true,
-	}), &gorm.Config{})
+	gdb, err := gorm.Open(sqlite.Open(db.Config.DBPath), &gorm.Config{})
 	if err != nil {
 		return err
 	}
-
-	sqlDB, err := gdb.DB()
-	if err != nil {
-		return err
-	}
-
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	db.gdb = gdb
 
