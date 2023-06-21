@@ -11,7 +11,9 @@ import (
 func (s *Server) ConfigureRoutes() {
 	s.logger.Info("Configuring routes...")
 
-	s.POST("/upload", s.uploadHandler)
+	deployment := s.Group("/deployment", authMiddleware)
+	deployment.POST("/upload", s.uploadHandler)
+}
 
 func (s *Server) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
