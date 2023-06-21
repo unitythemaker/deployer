@@ -30,3 +30,4 @@
 !cli/install-from-release.sh
 !Dockerfile
 !docker-compose.yaml
+!.env.example
