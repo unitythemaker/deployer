@@ -13,6 +13,16 @@ func (s *Server) ConfigureRoutes() {
 
 	s.POST("/upload", s.uploadHandler)
 
+func (s *Server) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		reqApiKey := c.Request().Header.Get("authorization")
+		if s.config.ApiKey != reqApiKey {
+			return c.JSON(http.StatusUnauthorized, map[string]string{
+				"error": "Unauthorized",
+			})
+		}
+		return next(c)
+	}
 }
 
 func (s *Server) uploadHandler(c echo.Context) error {

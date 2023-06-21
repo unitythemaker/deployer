@@ -7,8 +7,9 @@ import (
 )
 
 type ServerConfig struct {
-	Host string
-	Port int
+	Host   string
+	Port   int
+	ApiKey string
 }
 
 type Server struct {
