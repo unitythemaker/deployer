@@ -11,7 +11,7 @@ import (
 func (s *Server) ConfigureRoutes() {
 	s.logger.Info("Configuring routes...")
 
-	deployment := s.Group("/deployment", authMiddleware)
+	deployment := s.Group("/deployment", s.authMiddleware)
 	deployment.POST("/upload", s.uploadHandler)
 }
 
