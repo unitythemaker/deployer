@@ -3,6 +3,7 @@ package cmd
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -42,7 +43,7 @@ func generateTempFilename() string {
 }
 
 // TODO: Move to a common place
-func createUploadRequest(filePath, url string) (*http.Request, error) {
+func createUploadRequest(filePath, url, suffix, apiKey string) (*http.Request, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -72,15 +73,25 @@ func createUploadRequest(filePath, url string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", url, body)
+	req, err := http.NewRequest("POST", url+suffix, body)
 
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", apiKey)
 
 	return req, nil
+}
+
+// TODO: Move to a common place
+func getApiKeyForServer(server string) (string, error) {
+	apiKey, err := ring.Get(fmt.Sprintf("api-key_%s", server))
+	if err != nil {
+		return "", err
+	}
+	return apiKey, nil
 }
 
 // TODO: Move to a common place
@@ -190,8 +201,17 @@ func deploy(args []string) error {
 		return err
 	}
 
+	// Get API key
+	apiKey, err := getApiKeyForServer(serverURL)
+	if err != nil {
+		if errors.Is(err, ring.ErrNotFound) {
+			return fmt.Errorf("you are not logged-in for %s", serverURL)
+		}
+		return err
+	}
+
 	// Prepare upload request
-	uploadRequest, err := createUploadRequest(zipFilename, serverURL+"/upload")
+	uploadRequest, err := createUploadRequest(zipFilename, serverURL, "/deployment/upload", apiKey)
 
 	// Add additional info to request
 	query := uploadRequest.URL.Query()
