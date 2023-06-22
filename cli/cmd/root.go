@@ -4,6 +4,7 @@ Copyright © 2023 Halil Tezcan KARABULUT <unity@themaker.cyou>
 package cmd
 
 import (
+	"bulut-cli/util/keyring"
 	"fmt"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -11,7 +12,11 @@ import (
 	"path/filepath"
 )
 
-var cfgFile string
+var (
+	cfgFile string
+	appName = "BulutCLI-ProductDevBook"
+	ring    keyring.Keyring
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -37,6 +42,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	cobra.OnInitialize(initKeyring)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
@@ -93,7 +99,14 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.MergeInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		fmt.Println("Using server:", getServerURL())
 	}
+}
+
+func initKeyring() {
+	var err error
+	ring, err = keyring.Open(appName)
+	cobra.CheckErr(err)
 }
 
 func checkConfigAndUpdateDir(currentDir string) (bool, string) {

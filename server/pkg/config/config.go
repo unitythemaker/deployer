@@ -48,6 +48,7 @@ func InitDotenv() error {
 func GetWebServerConfig() *web.ServerConfig {
 	host := os.Getenv("HOST")
 	portStr := os.Getenv("PORT")
+	apiKey := os.Getenv("API_KEY")
 
 	defaultPort := 8080
 
@@ -57,8 +58,13 @@ func GetWebServerConfig() *web.ServerConfig {
 		port = defaultPort
 	}
 
+	if apiKey == "" {
+		log.Fatal("Missing API_KEY environment variable")
+	}
+
 	return &web.ServerConfig{
-		Host: host,
-		Port: port,
+		Host:   host,
+		Port:   port,
+		ApiKey: apiKey,
 	}
 }
