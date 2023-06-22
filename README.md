@@ -46,3 +46,5 @@ Currently, there are no prebuilt binaries for the server. You can build it yours
 2. Run `go build -o bulut-server ./server`
 3. Run `./bulut-server`
 4. You can optionally add it to your PATH
+
+x
