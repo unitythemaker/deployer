@@ -196,7 +196,7 @@ func findAvailableIP(port int) (string, error) {
 	return "", fmt.Errorf("no available IP found")
 }
 
-func BuildAndDeploy(filePath string, entrypoint string, logger *logger.Logger) {
+func BuildAndDeploy(namespaceId, deploymentId, filePath, entrypoint string, logger *logger.Logger) {
 	startTime := time.Now().UnixMilli()
 	logger.Info("Building and deploying app", "file", filePath)
 

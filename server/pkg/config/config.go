@@ -2,6 +2,7 @@ package config
 
 import (
 	"bulut-server/internal/web"
+	"bulut-server/pkg/orm/common"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 	"log"
@@ -66,5 +67,15 @@ func GetWebServerConfig() *web.ServerConfig {
 		Host:   host,
 		Port:   port,
 		ApiKey: apiKey,
+	}
+}
+
+func GetDatabaseConfig() *common.DatabaseConfig {
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "bulut.db"
+	}
+	return &common.DatabaseConfig{
+		DBPath: dbPath,
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bulut-server/pkg/logger"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 type ServerConfig struct {
@@ -15,20 +16,23 @@ type ServerConfig struct {
 type Server struct {
 	config       *ServerConfig
 	logger       *logger.Logger
+	db           *gorm.DB
 	dockerClient *docker.Client
 	*echo.Echo
 }
 
-func NewServer(config *ServerConfig, logger *logger.Logger) *Server {
-	dockerClient, err := docker.NewClientFromEnv()
-	if err != nil {
-		logger.Error(err, "Failed to create docker client")
-	}
+type ServerUtils struct {
+	Logger       *logger.Logger
+	DockerClient *docker.Client
+	Db           *gorm.DB
+}
 
+func NewServer(config *ServerConfig, components ServerUtils) *Server {
 	s := &Server{
 		config:       config,
-		logger:       logger,
-		dockerClient: dockerClient,
+		logger:       components.Logger,
+		db:           components.Db,
+		dockerClient: components.DockerClient,
 		Echo:         echo.New(),
 	}
 	s.ConfigureRoutes()

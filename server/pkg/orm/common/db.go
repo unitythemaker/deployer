@@ -10,28 +10,16 @@ type DatabaseConfig struct {
 	DBPath string
 }
 
-type DatabaseController struct {
-	Config *DatabaseConfig
-	gdb    *gorm.DB
-}
-
-func NewDatabase(config *DatabaseConfig) *DatabaseController {
-	return &DatabaseController{
-		Config: config,
-	}
-}
-
-func (db *DatabaseController) Connect() error {
-	gdb, err := gorm.Open(sqlite.Open(db.Config.DBPath), &gorm.Config{})
+func ConnectDB(config *DatabaseConfig) (*gorm.DB, error) {
+	db, err := gorm.Open(sqlite.Open(config.DBPath), &gorm.Config{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	db.gdb = gdb
+	err = db.AutoMigrate(&models.Namespace{}, &models.Deployment{})
+	if err != nil {
+		return nil, err
+	}
 
-	return nil
-}
-
-func (db *DatabaseController) AutoMigrate() error {
-	return db.gdb.AutoMigrate(&models.Namespace{}, &models.Deployment{})
+	return db, nil
 }

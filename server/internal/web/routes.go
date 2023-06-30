@@ -1,7 +1,8 @@
 package web
 
 import (
-	"bulut-server/internal/deploy"
+	"bulut-server/internal/logic/deploy"
+	"bulut-server/internal/logic/namespace"
 	"github.com/labstack/echo/v4"
 	"io"
 	"net/http"
@@ -11,8 +12,11 @@ import (
 func (s *Server) ConfigureRoutes() {
 	s.logger.Info("Configuring routes...")
 
-	deployment := s.Group("/deployment", s.authMiddleware)
-	deployment.POST("/upload", s.uploadHandler)
+	deploymentGrp := s.Group("/deployment", s.authMiddleware)
+	deploymentGrp.POST("/upload/:namespace/:deployment", s.uploadHandler)
+
+	namespaceGrp := s.Group("/namespace", s.authMiddleware)
+	namespaceGrp.POST("/create", s.createNamespaceHandler)
 }
 
 func (s *Server) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -27,6 +31,38 @@ func (s *Server) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
+type CreateNamespaceRequest struct {
+	Name string `json:"name" form:"name"`
+}
+
+func (s *Server) createNamespaceHandler(c echo.Context) error {
+	var req CreateNamespaceRequest
+	err := c.Bind(&req)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Bad request",
+		})
+	}
+	if req.Name == "" {
+		s.logger.Warn("Missing name in body")
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Missing name in body",
+		})
+	}
+
+	_, err = namespace.CreateNamespace(s.db, req.Name)
+	if err != nil {
+		s.logger.Error(err, "Failed to create namespace")
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to create namespace",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "Namespace created successfully",
+	})
+}
+
 func (s *Server) uploadHandler(c echo.Context) error {
 	entrypoint := c.QueryParam("entrypoint")
 	if entrypoint == "" {
@@ -35,6 +71,15 @@ func (s *Server) uploadHandler(c echo.Context) error {
 			"error": "Missing entrypoint query parameter",
 		})
 	}
+
+	namespaceId := c.Param("namespace")
+	if namespaceId == "" {
+		s.logger.Warn("Missing namespace-uuid path parameter")
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Missing namespace-uuid path parameter",
+		})
+	}
+	deploymentId := c.Param("deployment")
 
 	wholeForm, err := c.MultipartForm()
 	if err != nil {
@@ -79,7 +124,7 @@ func (s *Server) uploadHandler(c echo.Context) error {
 	}
 
 	go func() {
-		deploy.BuildAndDeploy(tempFilename, entrypoint, s.logger)
+		deploy.BuildAndDeploy(namespaceId, deploymentId, tempFilename, entrypoint, s.logger)
 	}()
 
 	response := map[string]string{
