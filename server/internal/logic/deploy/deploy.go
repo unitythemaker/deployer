@@ -59,7 +59,7 @@ func ExtractZip(filePath string, tempDir string) error {
 	return nil
 }
 
-func CreateDockerfileIfNotPresent(tempDir string, entrypoint string) error {
+func CreateDockerfileIfNotPresent(tempDir, entrypoint string) error {
 	if entrypoint == "" {
 		entrypoint = "server/index.mjs" // default for nitro
 	}
@@ -121,7 +121,7 @@ func BuildDockerImage(tempDir string) (string, error) {
 	return imageName, nil
 }
 
-func DeployDockerContainer(imageName string, containerName string) (string, error) {
+func DeployDockerContainer(imageName, containerName string) (string, error) {
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return "", err
@@ -167,7 +167,7 @@ func DeployDockerContainer(imageName string, containerName string) (string, erro
 	return ip, nil
 }
 
-func CleanupResources(tempDir string, filepath string) error {
+func CleanupResources(tempDir, filepath string) error {
 	err := os.RemoveAll(tempDir)
 	if err != nil {
 		return err
