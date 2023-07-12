@@ -16,7 +16,7 @@ func ConnectDB(config *DatabaseConfig) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	err = db.AutoMigrate(&models.Namespace{}, &models.Deployment{})
+	err = db.AutoMigrate(&models.Namespace{}, &models.Deployment{}, &models.Revision{})
 	if err != nil {
 		return nil, err
 	}

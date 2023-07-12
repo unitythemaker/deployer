@@ -2,10 +2,14 @@ package deploy
 
 import (
 	"archive/zip"
+	"bulut-server/internal/logic/revision"
 	"bulut-server/pkg/logger"
+	"bulut-server/pkg/orm/models"
 	"bytes"
 	"fmt"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"io"
 	"math/rand"
 	"net"
@@ -99,8 +103,16 @@ CMD [{{.Cmd}}]`
 	return nil
 }
 
-func BuildDockerImage(tempDir string) (string, error) {
-	imageName := fmt.Sprintf("a-bulut-image:%s", time.Now().Format("20060102150405"))
+type ImageBuildResult struct {
+	ImageID   string
+	ImageName string
+	ImageTag  string
+	Image     *docker.Image
+}
+
+func BuildDockerImage(imageRepo, tempDir string) (*ImageBuildResult, error) {
+	imageTag := time.Now().Format("20060102150405")
+	imageName := fmt.Sprintf("%s:%s", imageRepo, imageTag)
 	buildOpts := docker.BuildImageOptions{
 		Name:         imageName,
 		ContextDir:   tempDir,
@@ -110,21 +122,47 @@ func BuildDockerImage(tempDir string) (string, error) {
 
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	err = client.BuildImage(buildOpts)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return imageName, nil
+	// Tag image as latest
+	err = client.TagImage(imageName, docker.TagImageOptions{
+		Repo:  imageRepo,
+		Tag:   "latest",
+		Force: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	image, err := client.InspectImage(imageName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImageBuildResult{
+		ImageID:   image.ID,
+		ImageName: imageName,
+		ImageTag:  imageTag,
+		Image:     image,
+	}, nil
 }
 
-func DeployDockerContainer(imageName, containerName string) (string, error) {
+type ContainerDeployResult struct {
+	ContainerID string
+	Container   *docker.Container
+	IP          string // Deprecated: Gateway/Domains will be used instead
+}
+
+func DeployDockerContainer(imageName, containerName string) (*ContainerDeployResult, error) {
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	containerConfig := docker.Config{
@@ -136,7 +174,7 @@ func DeployDockerContainer(imageName, containerName string) (string, error) {
 
 	ip, err := findAvailableIP(DEFAULT_DEPLOY_PORT)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	hostConfig := docker.HostConfig{
@@ -156,15 +194,19 @@ func DeployDockerContainer(imageName, containerName string) (string, error) {
 		HostConfig: &hostConfig,
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	err = client.StartContainer(container.ID, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return ip, nil
+	return &ContainerDeployResult{
+		ContainerID: container.ID,
+		Container:   container,
+		IP:          ip,
+	}, nil
 }
 
 func CleanupResources(tempDir, filepath string) error {
@@ -180,6 +222,7 @@ func CleanupResources(tempDir, filepath string) error {
 	return nil
 }
 
+// Deprecated: Gateway/Domains will be used instead
 func findAvailableIP(port int) (string, error) {
 	for i := 100; i <= 255; i++ {
 		ip := fmt.Sprintf("127.0.0.%d", i)
@@ -196,43 +239,99 @@ func findAvailableIP(port int) (string, error) {
 	return "", fmt.Errorf("no available IP found")
 }
 
-func BuildAndDeploy(namespaceId, deploymentId, filePath, entrypoint string, logger *logger.Logger) {
-	startTime := time.Now().UnixMilli()
-	logger.Info("Building and deploying app", "file", filePath)
+type BuildAndDeployOpts struct {
+	NamespaceId  string
+	DeploymentId uuid.UUID
+	FilePath     string
+	Entrypoint   string
+	Logger       *logger.Logger
+	Db           *gorm.DB
+}
 
-	containerName := "app-" + fmt.Sprintf("%016x", rand.Uint64())
-	tempDir := filepath.Join(os.TempDir(), containerName)
+func BuildAndDeploy(opts BuildAndDeployOpts) {
+	logger := opts.Logger
+	db := opts.Db
+	startTime := time.Now().UnixMilli()
+	logger.Info("Building and deploying app", "file", opts.FilePath)
+
+	dockerName := fmt.Sprintf("bulut-%s-%s", opts.NamespaceId, opts.DeploymentId)
+	tempDir := filepath.Join(os.TempDir(), dockerName)
 	err := os.MkdirAll(tempDir, os.ModePerm)
 	if err != nil {
 		logger.Error(err, "Failed to create temporary directory")
 		return
 	}
 
-	err = ExtractZip(filePath, tempDir)
+	defer func(tempDir, filepath string) {
+		err := CleanupResources(tempDir, filepath)
+		if err != nil {
+			logger.Error(err, "Failed to cleanup resources")
+			return
+		}
+	}(tempDir, opts.FilePath)
+
+	err = ExtractZip(opts.FilePath, tempDir)
 	if err != nil {
 		logger.Error(err, "Failed to extract archive")
 		return
 	}
 
-	if err := CreateDockerfileIfNotPresent(tempDir, entrypoint); err != nil {
+	if err := CreateDockerfileIfNotPresent(tempDir, opts.Entrypoint); err != nil {
 		logger.Error(err, "Failed to create Dockerfile")
 		return
 	}
 
-	imageName, err := BuildDockerImage(tempDir)
+	buildResult, err := BuildDockerImage(dockerName, tempDir)
 	if err != nil {
 		logger.Error(err, "Failed to build Docker image")
 		return
 	}
+	var currentDeployment models.Deployment
+	err = db.Where("id = ?", opts.DeploymentId).First(&currentDeployment).Error
+	if err != nil {
+		logger.Error(err, "Failed to get current deployment")
+		return
+	}
+	_, err = revision.CreateRevision(db, opts.DeploymentId, dockerName, buildResult.ImageTag, buildResult.ImageID)
 
-	ip, err := DeployDockerContainer(imageName, containerName)
+	// Delete old container
+	if currentDeployment.ContainerID != "" {
+		if err := DeleteContainer(currentDeployment.ContainerID); err != nil {
+			logger.Error(err, "Failed to delete old container")
+			return
+		}
+	}
+
+	imageName := fmt.Sprintf("%s:%s", dockerName, buildResult.ImageTag)
+	deployResult, err := DeployDockerContainer(imageName, dockerName)
 	if err != nil {
 		logger.Error(err, "Failed to deploy Docker container")
 		return
 	}
-	logger.Info("Successfully deployed app", "ip", ip, "port", DEFAULT_DEPLOY_PORT, "time_ms", time.Now().UnixMilli()-startTime)
+	logger.Info("Successfully deployed app", "ip", deployResult.IP, "port", DEFAULT_DEPLOY_PORT, "time_ms", time.Now().UnixMilli()-startTime)
 
-	if err := CleanupResources(tempDir, filePath); err != nil {
-		logger.Error(err, "Failed to clean up resources")
+	// Update deployment
+	currentDeployment.ContainerID = deployResult.ContainerID
+	if err := db.Save(&currentDeployment).Error; err != nil {
+		logger.Error(err, "Failed to update deployment")
+		return
 	}
+}
+
+func DeleteContainer(containerID string) error {
+	client, err := docker.NewClientFromEnv()
+	if err != nil {
+		return err
+	}
+
+	err = client.RemoveContainer(docker.RemoveContainerOptions{
+		ID:            containerID,
+		RemoveVolumes: true, // TOOD: Possible data loss
+		Force:         true,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

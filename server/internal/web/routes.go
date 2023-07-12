@@ -4,6 +4,7 @@ import (
 	"bulut-server/internal/logic/deploy"
 	"bulut-server/internal/logic/namespace"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 	"io"
 	"net/http"
 	"os"
@@ -13,7 +14,9 @@ func (s *Server) ConfigureRoutes() {
 	s.logger.Info("Configuring routes...")
 
 	deploymentGrp := s.Group("/deployment", s.authMiddleware)
-	deploymentGrp.POST("/upload/:namespace/:deployment", s.uploadHandler)
+	deploymentGrp.GET("/:namespace/:deployment", s.getDeploymentHandler)
+	deploymentGrp.POST("/", s.createDeploymentHandler)
+	deploymentGrp.PUT("/upload/:namespace/:deployment", s.uploadHandler)
 
 	namespaceGrp := s.Group("/namespace", s.authMiddleware)
 	namespaceGrp.POST("/", s.createNamespaceHandler)
@@ -29,6 +32,26 @@ func (s *Server) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 		return next(c)
 	}
+}
+
+func (s *Server) getDeploymentHandler(c echo.Context) error {
+	namespaceName := c.Param("namespace")
+	deploymentName := c.Param("deployment")
+
+	dep, err := deploy.FindDeploymentByName(s.db, namespaceName, deploymentName)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": "Deployment not found",
+			})
+		}
+		s.logger.Error(err, "Failed to get deployment")
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to get deployment",
+		})
+	}
+
+	return c.JSON(http.StatusOK, dep)
 }
 
 type CreateNamespaceRequest struct {
@@ -68,6 +91,72 @@ func (s *Server) createNamespaceHandler(c echo.Context) error {
 	})
 }
 
+type CreateDeploymentRequest struct {
+	Name      string `json:"name" form:"name"`
+	Namespace string `json:"namespace" form:"namespace"`
+}
+
+func (s *Server) createDeploymentHandler(c echo.Context) error {
+	var req CreateDeploymentRequest
+	err := c.Bind(&req)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Bad request",
+		})
+	}
+	if req.Name == "" {
+		s.logger.Warn("Missing name in body")
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Missing name in body",
+		})
+	} else if req.Namespace == "" {
+		s.logger.Warn("Missing namespace in body")
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Missing namespace in body",
+		})
+	} else if len(req.Name) < 4 {
+		s.logger.Warn("Name is too short")
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Name is too short",
+		})
+	} else if len(req.Name) > 50 {
+		s.logger.Warn("Name is too long")
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Name is too long",
+		})
+	}
+
+	namespace, err := namespace.FindNamespaceByName(s.db, req.Namespace)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": "Namespace not found",
+			})
+		}
+		s.logger.Error(err, "Failed to find namespace")
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to find namespace",
+		})
+	}
+
+	_, err = deploy.CreateDeployment(s.db, req.Name, namespace.ID)
+	if err != nil {
+		if err.Error() == "UNIQUE constraint failed: deployments.name, deployments.namespace_id" {
+			return c.JSON(http.StatusConflict, map[string]string{
+				"error": "Deployment with this name already exists",
+			})
+		}
+		s.logger.Error(err, "Failed to create deployment")
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to create deployment",
+		})
+	}
+
+	return c.JSON(http.StatusCreated, map[string]string{
+		"message": "Deployment created successfully",
+	})
+}
+
 func (s *Server) uploadHandler(c echo.Context) error {
 	entrypoint := c.QueryParam("entrypoint")
 	if entrypoint == "" {
@@ -77,14 +166,33 @@ func (s *Server) uploadHandler(c echo.Context) error {
 		})
 	}
 
-	namespaceId := c.Param("namespace")
-	if namespaceId == "" {
-		s.logger.Warn("Missing namespace-uuid path parameter")
-		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "Missing namespace-uuid path parameter",
+	namespace, err := namespace.FindNamespaceByName(s.db, c.Param("namespace"))
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": "Namespace not found",
+			})
+		}
+		s.logger.Error(err, "Failed to find namespace")
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to find namespace",
 		})
 	}
-	deploymentId := c.Param("deployment")
+	namespaceId := namespace.ID.String()
+
+	deployment, err := deploy.FindDeploymentByName(s.db, c.Param("deployment"), namespaceId)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": "Deployment not found",
+			})
+		}
+		s.logger.Error(err, "Failed to find deployment")
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to find deployment",
+		})
+	}
+	deploymentId := deployment.ID
 
 	wholeForm, err := c.MultipartForm()
 	if err != nil {
@@ -129,7 +237,14 @@ func (s *Server) uploadHandler(c echo.Context) error {
 	}
 
 	go func() {
-		deploy.BuildAndDeploy(namespaceId, deploymentId, tempFilename, entrypoint, s.logger)
+		deploy.BuildAndDeploy(deploy.BuildAndDeployOpts{
+			NamespaceId:  namespaceId,
+			DeploymentId: deploymentId,
+			FilePath:     tempFilename,
+			Entrypoint:   entrypoint,
+			Db:           s.db,
+			Logger:       s.logger,
+		})
 	}()
 
 	response := map[string]string{
