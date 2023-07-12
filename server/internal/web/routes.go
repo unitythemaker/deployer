@@ -16,7 +16,7 @@ func (s *Server) ConfigureRoutes() {
 	deploymentGrp.POST("/upload/:namespace/:deployment", s.uploadHandler)
 
 	namespaceGrp := s.Group("/namespace", s.authMiddleware)
-	namespaceGrp.POST("/create", s.createNamespaceHandler)
+	namespaceGrp.POST("/", s.createNamespaceHandler)
 }
 
 func (s *Server) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -52,6 +52,11 @@ func (s *Server) createNamespaceHandler(c echo.Context) error {
 
 	_, err = namespace.CreateNamespace(s.db, req.Name)
 	if err != nil {
+		if err.Error() == "UNIQUE constraint failed: namespaces.name" {
+			return c.JSON(http.StatusConflict, map[string]string{
+				"error": "Namespace with this name already exists",
+			})
+		}
 		s.logger.Error(err, "Failed to create namespace")
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to create namespace",
