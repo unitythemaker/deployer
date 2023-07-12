@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -36,8 +37,10 @@ func login(args []string) error {
 	}
 
 	// Get the API key from the user
-	fmt.Print("Enter your API Key: ")
-	_, err = fmt.Scanln(&apiKey)
+	prompt := &survey.Password{
+		Message: "Enter your API Key",
+	}
+	err = survey.AskOne(prompt, &apiKey, survey.WithValidator(survey.Required))
 	if err != nil {
 		return err
 	}

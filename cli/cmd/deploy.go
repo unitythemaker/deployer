@@ -3,14 +3,16 @@ package cmd
 import (
 	"archive/zip"
 	"bytes"
-	"errors"
 	"fmt"
+	"github.com/AlecAivazis/survey/v2"
 	"io"
 	"math/rand"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/cheggaaa/pb/v3"
@@ -21,6 +23,9 @@ import (
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy the build output to the Bulut server",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		return checkLogin()
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return deploy(args)
 	},
@@ -73,7 +78,7 @@ func createUploadRequest(filePath, url, suffix, apiKey string) (*http.Request, e
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", url+suffix, body)
+	req, err := http.NewRequest("PUT", url+suffix, body)
 
 	if err != nil {
 		return nil, err
@@ -190,10 +195,135 @@ func getServerURL() string {
 	return fmt.Sprintf("%s://%s:%d", protocol, host, port)
 }
 
+func checkDeployment(namespaceName, deploymentName string) (bool, error) {
+	serverURL := getServerURL()
+	deploymentURL := fmt.Sprintf("%s/deployment/%s/%s", serverURL, namespaceName, deploymentName)
+	apiKey, err := getApiKeyForServer(serverURL)
+	if err != nil {
+		return false, err
+	}
+
+	req, err := http.NewRequest("GET", deploymentURL, nil)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Authorization", apiKey)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("error: %s\n", err)
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return false, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		errResp := &bytes.Buffer{}
+		_, err := io.Copy(errResp, resp.Body)
+		if err != nil {
+			return false, err
+		}
+
+		fmt.Printf("bad status: %s, response: %s\n", resp.Status, errResp)
+		return false, err
+	}
+
+	return true, nil
+}
+
+// Server-side type
+//type CreateDeploymentRequest struct {
+//	Name      string `json:"name" form:"name"`
+//	Namespace string `json:"namespace" form:"namespace"`
+//}
+
+func createDeployment(namespaceName, deploymentName string) error {
+	serverURL := getServerURL()
+	deploymentURL := fmt.Sprintf("%s/deployment/", serverURL)
+	apiKey, err := getApiKeyForServer(serverURL)
+	if err != nil {
+		return err
+	}
+
+	formData := url.Values{}
+	formData.Add("name", deploymentName)
+	formData.Add("namespace", namespaceName)
+
+	req, err := http.NewRequest("POST", deploymentURL, strings.NewReader(formData.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", apiKey)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("error: %s\n", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		errResp := &bytes.Buffer{}
+		_, err := io.Copy(errResp, resp.Body)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("bad status: %s, response: %s\n", resp.Status, errResp)
+		return err
+	}
+
+	return nil
+}
+
 func deploy(args []string) error {
 	serverURL := getServerURL()
 	buildPath := viper.GetString("config.build-path")
 	entrypoint := viper.GetString("config.entrypoint")
+	deploymentName := viper.GetString("deployment.name")
+	namespace := viper.GetString("deployment.namespace")
+
+	if namespace == "" {
+		prompt := &survey.Input{
+			Message: "New deployment namespace:",
+		}
+		err := survey.AskOne(prompt, &namespace, survey.WithValidator(survey.Required))
+		if err != nil {
+			return err
+		}
+	}
+	if deploymentName == "" {
+		prompt := &survey.Input{
+			Message: "New deployment name:",
+		}
+		err := survey.AskOne(prompt, &deploymentName, survey.WithValidator(survey.Required))
+		if err != nil {
+			return err
+		}
+	}
+
+	// Check if deployment already exists
+	deploymentExists, err := checkDeployment(namespace, deploymentName)
+	if err != nil {
+		return err
+	}
+	if deploymentExists {
+		fmt.Printf("Deployment %s/%s already exists.\n", namespace, deploymentName)
+		fmt.Println("Continuing to update deployment")
+	} else {
+		fmt.Printf("Creating new deployment %s/%s\n", namespace, deploymentName)
+		err = createDeployment(namespace, deploymentName)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Deployment created")
+	}
+
 	// Create zip file from build output
 	zipFilename := generateTempFilename()
 
@@ -204,14 +334,12 @@ func deploy(args []string) error {
 	// Get API key
 	apiKey, err := getApiKeyForServer(serverURL)
 	if err != nil {
-		if errors.Is(err, ring.ErrNotFound) {
-			return fmt.Errorf("you are not logged-in for %s", serverURL)
-		}
 		return err
 	}
 
 	// Prepare upload request
-	uploadRequest, err := createUploadRequest(zipFilename, serverURL, "/deployment/upload", apiKey)
+	urlSuffix := fmt.Sprintf("/deployment/upload/%s/%s", namespace, deploymentName)
+	uploadRequest, err := createUploadRequest(zipFilename, serverURL, urlSuffix, apiKey)
 
 	// Add additional info to request
 	query := uploadRequest.URL.Query()

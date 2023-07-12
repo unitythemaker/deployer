@@ -6,6 +6,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"github.com/AlecAivazis/survey/v2"
 
 	"github.com/spf13/cobra"
 )
@@ -33,17 +34,19 @@ func whoami(args []string) error {
 		}
 		return err
 	}
-	// Ask user for confirmation of exposing the API key
-	fmt.Println("\nAre you sure you want to expose your API key?")
-	fmt.Println("This is not recommended if you are in a public place.")
-	fmt.Println("If you are sure, type 'yes' and press enter.")
-	fmt.Print("(yes/no): ")
-	var confirmation string
-	_, err = fmt.Scanln(&confirmation)
+	if apiKey == "" {
+		fmt.Println("You are not logged in! (empty API key)")
+		return nil
+	}
+	var confirmation bool
+	prompt := &survey.Confirm{
+		Message: "Are you sure you want to expose your API key?",
+	}
+	err = survey.AskOne(prompt, &confirmation)
 	if err != nil {
 		return err
 	}
-	if confirmation != "yes" {
+	if confirmation != true {
 		fmt.Println("Aborting...")
 		return nil
 	}
