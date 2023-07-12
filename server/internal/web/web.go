@@ -36,5 +36,7 @@ func NewServer(config *ServerConfig, components ServerUtils) *Server {
 		Echo:         echo.New(),
 	}
 	s.ConfigureRoutes()
+	// Disabled due to last params having a bug, an unwanted slash is added
+	//s.Echo.Pre(middleware.AddTrailingSlash())
 	return s
 }
